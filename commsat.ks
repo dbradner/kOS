@@ -15,6 +15,8 @@ function main{
     wait 5.
     payloadActivation().
 
+    planAltitudeChange(110000, false, false, 999999).
+
     lock throttle to 0.
     lock steering to prograde.
     wait 10.
@@ -38,8 +40,9 @@ function countdown {
 }
 
 function launchCommit{
-    print "Launch commit.".
+    print "Ignition.".
     safeStage().
+    print "Launch commit.".
     safeStage().
 
     wait until alt:radar > 100.
@@ -73,17 +76,9 @@ function fairingDeploy{
 }
 
 function orbitalInsertionBurn{
-    local apoapsisTime is time + eta:apoapsis.
-    local apoapsisVelocity is velocityAt(ship, apoapsisTime):orbit:mag.
-
-    local bodyDistance is kerbin:radius+ship:obt:apoapsis.
-
-    local orbitalVelocity is sqrt(constant:g * kerbin:mass * ((2/bodyDistance)-(1/bodyDistance))).
-
-    local dV is orbitalVelocity - apoapsisVelocity.
-    local mnv is node(apoapsisTime:seconds, 0, 0, dV).
-    add mnv.
+    planAltitudeChange(ship:apoapsis, true, true, 99999).
     print "Circularizing orbit at " + ship:orbit:apoapsis + "m.".
+    local mnv is nextNode.
     executeNextManuver().
     print "SECO 2.".
     print "Final orbit: " + ship:orbit:apoapsis + "m x " + ship:orbit:periapsis + "m @ " + ship:orbit:eccentricity + "deg.".
@@ -156,6 +151,36 @@ function executeNextManuver {
     lock throttle to 0.
     unlock steering.
     unlock throttle.
+}
+
+function planAltitudeChange{
+    parameter newAlt.
+    parameter atApo.
+    parameter circularize.
+    parameter maxdV.
+
+    if atApo = false and ship:periapsis < ship:body:atm:height {
+        print "Ship is suborbital, cannot raise apoapsis.".
+        return.
+    }
+
+    local mnvTime is choose time + eta:apoapsis if atApo else time + eta:periapsis.
+    local mnvStartingVel is velocityAt(ship, mnvTime):orbit:mag.
+
+    local ap is ship:body:radius + ship:orbit:apoapsis.
+    local pe is ship:body:radius + ship:orbit:periapsis.
+    local bodyDistance is choose ap if atApo else pe.
+    local altDiff is newAlt - ship:apoapsis.
+    local semiMajAxis is choose (ap + pe + altDiff) / 2 if circularize = false else bodyDistance.
+
+    local mnvEndingVel is sqrt(constant:g * ship:body:mass * ((2/bodyDistance) - (1/semiMajAxis))).
+
+    local dv is mnvEndingVel - mnvStartingVel.
+    local mnv is node(mnvTime:seconds, 0, 0, dv).
+    if dv > maxdV {
+        set mnv to node(mnvTime:seconds, 0, 0, maxdV).
+    }
+    add mnv.
 }
 
 main().
