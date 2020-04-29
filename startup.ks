@@ -1,1 +1,1 @@
-run commsat.ks.
+// run commsat.ks.

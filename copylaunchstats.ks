@@ -1,0 +1,1 @@
+copyPath("1:launchstats.ks", 0).

@@ -2,20 +2,26 @@
 clearScreen.
 
 function main{
+    local launchStart TO TIME:SECONDS.
+    local lngStart TO SHIP:LONGITUDE.
+
     vehicleStartup().
     countdown().
     launchCommit().
     ascentGuidance().
-    vehicleShutdown().
+    vehicleCoastPhase().
     fairingDeploy().
     wait until alt:radar > 75000.
     orbitalInsertionBurn().
+
+    LOG "SET launchTime TO " + (TIME:SECONDS - launchStart) + "." TO "1:launchStats.ks".
+    LOG "SET launchDegrees TO " + (SHIP:LONGITUDE - lngStart) + "." TO "1:launchStats.ks".
+    // copyPath("launchStats.ks", 0).
+
     wait 5.
     payloadDeploy().
     wait 5.
     payloadActivation().
-
-    planAltitudeChange(110000, false, false, 999999).
 
     lock throttle to 0.
     lock steering to prograde.
@@ -28,7 +34,10 @@ function vehicleStartup{
     toggle ag1.
     print "Vehicle is in startup.".
 
-    lock throttle to 1.
+    lock gravity to constant:g * (ship:body:mass/(ship:body:radius+alt:radar)^2).
+    lock twrLimit to choose 3/(ship:availablethrust/(ship:mass * gravity)) if ship:availablethrust> 0 else 1.
+
+    lock throttle to twrLimit.
     lock steering to heading(90, 90).
 }
 
@@ -63,7 +72,7 @@ function ascentGuidance{
     }
 }
 
-function vehicleShutdown{
+function vehicleCoastPhase{
     print "SECO 1.".
     lock throttle to 0.
     lock steering to prograde.
@@ -76,7 +85,7 @@ function fairingDeploy{
 }
 
 function orbitalInsertionBurn{
-    planAltitudeChange(ship:apoapsis, true, true, 99999).
+    planAltitudeChange(ship:obt:apoapsis, true, true).
     print "Circularizing orbit at " + ship:orbit:apoapsis + "m.".
     local mnv is nextNode.
     executeNextManuver().
@@ -156,8 +165,8 @@ function executeNextManuver {
 function planAltitudeChange{
     parameter newAlt.
     parameter atApo.
-    parameter circularize.
-    parameter maxdV.
+    parameter circularize is false.
+    parameter maxdV is 999999.
 
     if atApo = false and ship:periapsis < ship:body:atm:height {
         print "Ship is suborbital, cannot raise apoapsis.".
