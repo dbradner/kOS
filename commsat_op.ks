@@ -1,6 +1,9 @@
 @lazyGlobal off.
 clearScreen.
 
+runOncePath("lib_utils.ks").
+runOncePath("lib_manuver_guidance.ks").
+
 function main{
     local launchStart TO TIME:SECONDS.
     local lngStart TO SHIP:LONGITUDE.
@@ -23,6 +26,8 @@ function main{
     wait 5.
     payloadActivation().
 
+    // runpath("slot_into_orbit.ks").
+
     lock throttle to 0.
     lock steering to prograde.
     wait 10.
@@ -35,7 +40,7 @@ function vehicleStartup{
     print "Vehicle is in startup.".
 
     lock gravity to constant:g * (ship:body:mass/(ship:body:radius+alt:radar)^2).
-    lock twrLimit to choose 3/(ship:availablethrust/(ship:mass * gravity)) if ship:availablethrust> 0 else 1.
+    lock twrLimit to choose 3.4/(ship:availablethrust/(ship:mass * gravity)) if ship:availablethrust> 0 else 1.
 
     lock throttle to twrLimit.
     lock steering to heading(90, 90).
@@ -67,7 +72,7 @@ function ascentGuidance{
     local targetDirection is 90.
     lock steering to heading(targetDirection, targetPitch).
 
-    until apoapsis > 2100000 {
+    until apoapsis > 1250000 {
         doAutostage().
     }
 }
@@ -85,7 +90,7 @@ function fairingDeploy{
 }
 
 function orbitalInsertionBurn{
-    planAltitudeChange(1000000, true).
+    planAltitudeChange(apoapsis, true).
     print "Circularizing orbit at " + ship:orbit:apoapsis + "m.".
     local mnv is nextNode.
     executeNextManuver().
@@ -123,73 +128,73 @@ function doAutostage{
     }
 }
 
-function safeStage {
-    wait until stage:ready.
-    stage.
-}
+// function safeStage {
+//     wait until stage:ready.
+//     stage.
+// }
 
-function executeNextManuver {
-    local mnv is nextNode.
-    print "Node in " + round(mnv:eta) + ".".
+// function executeNextManuver {
+//     local mnv is nextNode.
+//     print "Node in " + round(mnv:eta) + ".".
 
-    lock maxAcceleration to ship:maxthrust/ship:mass.
-    local burnDuration is mnv:deltav:mag/maxAcceleration.
+//     lock maxAcceleration to ship:maxthrust/ship:mass.
+//     local burnDuration is mnv:deltav:mag/maxAcceleration.
 
-    print "Estimated burn duration " + burnDuration + ".".
+//     print "Estimated burn duration " + burnDuration + ".".
 
-    wait until mnv:eta < (burnDuration/2 + 45).
-    lock steering to mnv:deltav.
-    wait until mnv:eta < (burnDuration/2).
+//     wait until mnv:eta < (burnDuration/2 + 45).
+//     lock steering to mnv:deltav.
+//     wait until mnv:eta < (burnDuration/2).
 
-    local dV0 is mnv:deltav.
-    lock throttle to min(mnv:deltav:mag/maxAcceleration, 1).
+//     local dV0 is mnv:deltav.
+//     lock throttle to min(mnv:deltav:mag/maxAcceleration, 1).
 
-    until false { 
-        if mnv:deltav:mag < 0.1 or vDot(dV0, mnv:deltav) < 0 {
-            print "Finalizing burn, remaining dV " + round(mnv:deltav:mag,1) + "m/s, vdot: " + round(vdot(dV0, mnv:deltav),1).
+//     until false { 
+//         if mnv:deltav:mag < 0.1 or vDot(dV0, mnv:deltav) < 0 {
+//             print "Finalizing burn, remaining dV " + round(mnv:deltav:mag,1) + "m/s, vdot: " + round(vdot(dV0, mnv:deltav),1).
 
-            wait until vdot(dv0, mnv:deltav) < 0.5.
+//             wait until vdot(dv0, mnv:deltav) < 0.5.
 
-            lock throttle to 0.
-            print "End burn, remain dv " + round(mnv:deltav:mag,1) + "m/s, vdot: " + round(vdot(dv0, mnv:deltav),1).
-            break.
-        }
-    }
+//             lock throttle to 0.
+//             print "End burn, remain dv " + round(mnv:deltav:mag,1) + "m/s, vdot: " + round(vdot(dv0, mnv:deltav),1).
+//             break.
+//         }
+//     }
 
-    lock steering to prograde.
-    lock throttle to 0.
-    unlock steering.
-    unlock throttle.
-}
+//     lock steering to prograde.
+//     lock throttle to 0.
+//     unlock steering.
+//     unlock throttle.
+// }
 
-function planAltitudeChange{
-    parameter newAlt.
-    parameter atApo.
-    parameter circularize is false.
-    parameter maxdV is 999999.
+// function planAltitudeChange{
+//     parameter newAlt.
+//     parameter atApo.
+//     parameter circularize is false.
+//     parameter maxdV is 999999.
 
-    if atApo = false and ship:periapsis < ship:body:atm:height {
-        print "Ship is suborbital, cannot raise apoapsis.".
-        return.
-    }
+//     if atApo = false and ship:periapsis < ship:body:atm:height {
+//         print "Ship is suborbital, cannot raise apoapsis.".
+//         return.
+//     }
 
-    local mnvTime is choose time + eta:apoapsis if atApo else time + eta:periapsis.
-    local mnvStartingVel is velocityAt(ship, mnvTime):orbit:mag.
+//     local mnvTime is choose time + eta:apoapsis if atApo else time + eta:periapsis.
+//     local mnvStartingVel is velocityAt(ship, mnvTime):orbit:mag.
 
-    local ap is ship:body:radius + ship:orbit:apoapsis.
-    local pe is ship:body:radius + ship:orbit:periapsis.
-    local bodyDistance is choose ap if atApo else pe.
-    local altDiff is choose newAlt - ship:periapsis if atApo else newAlt - ship:apoapsis.
-    local semiMajAxis is choose (ap + pe + altDiff) / 2 if circularize = false else bodyDistance.
+//     local ap is ship:body:radius + ship:orbit:apoapsis.
+//     local pe is ship:body:radius + ship:orbit:periapsis.
+//     local bodyDistance is choose ap if atApo else pe.
+//     local altDiff is choose newAlt - ship:periapsis if atApo else newAlt - ship:apoapsis.
+//     local semiMajAxis is choose (ap + pe + altDiff) / 2 if circularize = false else bodyDistance.
 
-    local mnvEndingVel is sqrt(ship:body:mu * ((2/bodyDistance) - (1/semiMajAxis))).
+//     local mnvEndingVel is sqrt(ship:body:mu * ((2/bodyDistance) - (1/semiMajAxis))).
 
-    local dv is mnvEndingVel - mnvStartingVel.
-    local mnv is node(mnvTime:seconds, 0, 0, dv).
-    if dv > maxdV {
-        set mnv to node(mnvTime:seconds, 0, 0, maxdV).
-    }
-    add mnv.
-}
+//     local dv is mnvEndingVel - mnvStartingVel.
+//     local mnv is node(mnvTime:seconds, 0, 0, dv).
+//     if dv > maxdV {
+//         set mnv to node(mnvTime:seconds, 0, 0, maxdV).
+//     }
+//     add mnv.
+// }
 
 main().
