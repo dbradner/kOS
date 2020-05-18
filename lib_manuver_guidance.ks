@@ -21,7 +21,6 @@ function calculateMotionDelta {
 function calculateManuverAngle {
     parameter offset.
     parameter targetMotion.
-    // return 180 - targetMotion.
     local angle is 180 - (targetMotion + offset).
     return choose angle if angle > 0 else 360 + angle.
 }
